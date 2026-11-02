@@ -1,7 +1,7 @@
 import type { Database } from '../domain/types'
 import type { LocalStorageAdapter } from './local'
 import type { Remote } from './remote'
-import type { Op, Storage, SyncStatus } from './types'
+import { plainOps, type Op, type Storage, type SyncStatus } from './types'
 
 const RETRY_MS = 8000
 
@@ -29,7 +29,8 @@ export class SyncStorage implements Storage {
     return this.local.load()
   }
 
-  async apply(ops: Op[]): Promise<void> {
+  async apply(input: Op[]): Promise<void> {
+    const ops = plainOps(input)
     this.epoch++
     await this.local.apply(ops)
     this.outbox.push(ops)

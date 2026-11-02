@@ -39,6 +39,21 @@ beforeEach(() => {
 })
 
 describe('Apps Script backend + sync', () => {
+  it('accepts proxy-wrapped rows (Svelte $state) without a DataCloneError and still syncs them', async () => {
+    const a = client()
+    await a.sync.load()
+    const wrapped = new Proxy(item('i1', { name: 'Proxy Ürün' }), {})
+    const cats = new Proxy({ ...DEFAULT_CATEGORIES }, {})
+    await a.sync.apply([
+      { t: 'put', table: 'items', rows: [wrapped] },
+      { t: 'categories', value: cats },
+    ])
+    await until(() => (a.sync as unknown as { outbox: unknown[] }).outbox.length === 0)
+    const { db } = await new Remote({ url: 'x', key }, be.fetch).load()
+    expect(db.items[0].name).toBe('Proxy Ürün')
+    expect((await a.local.load()).items[0].name).toBe('Proxy Ürün')
+  })
+
   it('rejects a wrong key and an unconfigured sheet', async () => {
     const bad = new Remote({ url: 'x', key: 'yanlis' }, be.fetch)
     await expect(bad.ping()).rejects.toThrow('Erişim anahtarı geçersiz')

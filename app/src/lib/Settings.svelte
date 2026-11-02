@@ -46,7 +46,7 @@
   }
 
   // import from a labstok-import-v1 JSON file (admin only)
-  let imp = $state<ParseResult | null>(null)
+  let imp = $state.raw<ParseResult | null>(null) // raw: keep plain objects, never a deep proxy
   let impName = $state('')
   async function pickFile(e: Event) {
     const f = (e.currentTarget as HTMLInputElement).files?.[0]

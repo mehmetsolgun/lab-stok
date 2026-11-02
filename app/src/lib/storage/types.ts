@@ -10,6 +10,14 @@ export type Op =
   | { t: 'members'; value: string[] }
   | { t: 'admin'; value: { salt: string; hash: string } }
 
+/**
+ * Plain deep copy of operations. UI state may hand us Svelte `$state` proxies, which IndexedDB cannot
+ * structured-clone (DataCloneError), so every storage entry point copies first. Our data is JSON-safe.
+ */
+export function plainOps(ops: Op[]): Op[] {
+  return JSON.parse(JSON.stringify(ops))
+}
+
 export interface SyncStatus {
   queued: number // batches not yet confirmed by the server
   error: string

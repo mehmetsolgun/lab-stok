@@ -1,5 +1,5 @@
 import { DEFAULT_CATEGORIES, type Database } from '../domain/types'
-import type { Op, Storage } from './types'
+import { plainOps, type Op, type Storage } from './types'
 
 const STORES = ['items', 'bottles', 'primers'] as const
 
@@ -78,7 +78,8 @@ export class LocalStorageAdapter implements Storage {
     return { items, bottles, primers, log, categories: cats ?? DEFAULT_CATEGORIES, members: members ?? [], admin: admin ?? null }
   }
 
-  async apply(ops: Op[]): Promise<void> {
+  async apply(input: Op[]): Promise<void> {
+    const ops = plainOps(input)
     const db = await this.dbp
     const tx = db.transaction([...STORES, 'log', 'meta'], 'readwrite')
     for (const op of ops) {
