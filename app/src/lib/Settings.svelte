@@ -1,5 +1,6 @@
 <script lang="ts">
   import AdminPanel from './AdminPanel.svelte'
+  import Dialog from './Dialog.svelte'
   import { clearConfig, loadConfig, makeLink } from './connection'
   import { store } from './state.svelte'
   import { ui } from './ui.svelte'
@@ -27,12 +28,35 @@
     void store.saveCategories({ ...store.categories, [key]: store.categories[key].filter((x) => x !== v) }, `'${v}' kategoriden silindi.`)
   }
   async function demo() {
-    if (store.items.length && !confirm('Mevcut TÜM veri demo veriyle değiştirilecek (eski kayıtlar bu bilgisayarda kalır ama listeden görünmez). Devam?')) return
+    if (store.demoCount) return ui.toast('Demo veri zaten yüklü. Önce silin.')
     busy = true
     await new Promise((r) => setTimeout(r))
-    await store.replaceAll(makeDemo(5000, 300), 'Demo veri yüklendi (5000 ürün, 300 primer).')
+    await store.addMany(makeDemo(5000, 300), 'Demo veri eklendi (5000 ürün, 300 primer).')
     busy = false
-    ui.toast('Demo veri yüklendi', 'ok')
+    ui.toast('Demo veri eklendi', 'ok')
+  }
+  async function removeDemo() {
+    if (!confirm(`Yalnızca demo veri silinecek (${store.demoCount} kayıt). Kendi girdiğiniz kayıtlara dokunulmaz. Devam edilsin mi?`)) return
+    busy = true
+    await new Promise((r) => setTimeout(r))
+    await store.deleteDemo()
+    busy = false
+    ui.toast('Demo veri silindi', 'ok')
+  }
+
+  // "delete everything" needs the admin password plus a typed confirmation
+  let wipeOpen = $state(false)
+  let wipeText = $state('')
+  const wipeOk = $derived(wipeText.trim().replace(/[İIı]/g, 'i').toLowerCase() === 'sil')
+  async function wipe(e: SubmitEvent) {
+    e.preventDefault()
+    if (!wipeOk) return
+    busy = true
+    await store.clearAllData()
+    busy = false
+    wipeOpen = false
+    wipeText = ''
+    ui.toast('Tüm stok ve primer verisi silindi', 'ok')
   }
   async function exp() {
     busy = true
@@ -96,9 +120,45 @@
     <h2>Rapor ve veri</h2>
     <div class="toolbar">
       <button class="btn primary" disabled={busy} onclick={exp}>📊 Tüm veriyi Excel'e aktar</button>
-      <button class="btn" disabled={busy} onclick={demo}>🧪 Demo veri yükle (5000 ürün)</button>
+      <button class="btn" disabled={busy || store.demoCount > 0} onclick={demo}>🧪 Demo veri ekle (5000 ürün)</button>
+      {#if store.demoCount > 0}
+        <button class="btn danger" disabled={busy} onclick={removeDemo}>🧹 Demo veriyi sil ({store.demoCount})</button>
+      {/if}
+    </div>
+    <p class="hint" style="margin-bottom:0">Demo veri işaretlidir; silince yalnızca o kayıtlar gider, kendi kayıtlarınız kalır.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Tehlikeli bölge</h2>
+    <p class="hint" style="margin-top:0">
+      Tüm stok ürünlerini, açık şişeleri ve primerleri siler. Kayıtlar (log), üyeler ve kategoriler silinmez.
+      Bu işlem E-Tablodaki veriyi de siler; geri almak için E-Tabloda <i>Dosya → Sürüm geçmişi</i> kullanılabilir.
+    </p>
+    <div class="toolbar">
+      <button class="btn danger" disabled={busy || !store.isAdmin} title={store.isAdmin ? '' : 'Önce yönetici girişi yapın'} onclick={() => (wipeOpen = true)}>
+        ⚠️ Tüm stok ve primer verisini sil
+      </button>
+      {#if !store.isAdmin}<span class="hint">Yönetici girişi gerekir (yukarıdaki "Üyeler ve yönetici" bölümü).</span>{/if}
     </div>
   </div>
+
+  {#if wipeOpen}
+    <Dialog title="Tüm veriyi sil" width="460px" onclose={() => { wipeOpen = false; wipeText = '' }}>
+      <form id="wipeform" onsubmit={wipe}>
+        <p style="margin-top:0">
+          <b>{store.items.length} ürün</b> ve <b>{store.primers.length} primer</b> kalıcı olarak silinecek.
+        </p>
+        <label class="f">Onaylamak için <b>SİL</b> yazın
+          <!-- svelte-ignore a11y_autofocus -->
+          <input type="text" bind:value={wipeText} autocomplete="off" autofocus />
+        </label>
+      </form>
+      {#snippet footer()}
+        <button class="btn" type="button" onclick={() => { wipeOpen = false; wipeText = '' }}>Vazgeç</button>
+        <button class="btn primary danger" type="submit" form="wipeform" disabled={!wipeOk || busy}>Hepsini sil</button>
+      {/snippet}
+    </Dialog>
+  {/if}
 
   <div class="panel">
     <h2>Görünüm ve bağlantı</h2>

@@ -6,6 +6,7 @@ import {
 } from './domain/rules'
 import type { Op, Storage } from './storage/types'
 import { checkAdminPassword, makeAdminSecret, type AdminSecret } from './auth'
+import { isDemoId } from './seed'
 
 export interface ItemRow {
   item: Item
@@ -297,15 +298,52 @@ class Store {
     return this.commit([{ t: 'categories', value: c }, { t: 'log', entries: [e] }])
   }
 
-  // ---- bulk (demo data / import) ----
-  async replaceAll(db: Database, note: string) {
-    this.apply(db)
+  // ---- bulk (demo data / reset) ----
+  /** Appends records; existing ones are left alone. */
+  async addMany(db: Pick<Database, 'items' | 'bottles' | 'primers'>, note: string) {
+    this.items = [...this.items, ...db.items]
+    this.bottles = [...this.bottles, ...db.bottles]
+    this.primers = [...this.primers, ...db.primers]
     const e = this.entry('Ayarlar', 'EKLEME', note)
     await this.commit([
       { t: 'put', table: 'items', rows: db.items },
       { t: 'put', table: 'bottles', rows: db.bottles },
       { t: 'put', table: 'primers', rows: db.primers },
-      { t: 'categories', value: db.categories },
+      { t: 'log', entries: [e] },
+    ])
+  }
+
+  get demoCount() {
+    return this.items.filter((i) => isDemoId(i.id)).length + this.primers.filter((p) => isDemoId(p.id)).length
+  }
+
+  /** Removes only the records created by "demo veri ekle". */
+  async deleteDemo() {
+    const items = this.items.filter((i) => isDemoId(i.id))
+    const primers = this.primers.filter((p) => isDemoId(p.id))
+    await this.purge(
+      new Set(items.map((i) => i.id)), new Set(primers.map((p) => p.id)),
+      `Demo veri silindi (${items.length} ürün, ${primers.length} primer).`,
+    )
+  }
+
+  /** Admin only. Removes every stock item, open bottle and primer; log, members and categories stay. */
+  async clearAllData() {
+    if (!this.isAdmin) return
+    const n = this.items.length, m = this.primers.length
+    await this.purge(new Set(this.items.map((i) => i.id)), new Set(this.primers.map((p) => p.id)), `Tüm stok ve primer verisi silindi (${n} ürün, ${m} primer).`)
+  }
+
+  private async purge(itemIds: Set<string>, primerIds: Set<string>, note: string) {
+    const bottleIds = this.bottles.filter((b) => itemIds.has(b.itemId)).map((b) => b.id)
+    this.items = this.items.filter((i) => !itemIds.has(i.id))
+    this.bottles = this.bottles.filter((b) => !itemIds.has(b.itemId))
+    this.primers = this.primers.filter((p) => !primerIds.has(p.id))
+    const e = this.entry('Ayarlar', 'SİLME', note)
+    await this.commit([
+      { t: 'del', table: 'items', ids: [...itemIds] },
+      { t: 'del', table: 'bottles', ids: bottleIds },
+      { t: 'del', table: 'primers', ids: [...primerIds] },
       { t: 'log', entries: [e] },
     ])
   }
