@@ -3,7 +3,7 @@
   import Dialog from './Dialog.svelte'
   import type { Col } from './cols'
   import { blankPrimer, store } from './state.svelte'
-  import { cleanSeq, formatDate, gcPercent, isValidSeq } from './domain/rules'
+  import { cleanSeq, gcPercent, isValidSeq } from './domain/rules'
   import type { Primer } from './domain/types'
   import { ui } from './ui.svelte'
 
@@ -26,21 +26,21 @@
     const words = q.split(/\s+/).filter(Boolean)
     return store.primers.filter((p) => {
       if (organism && p.organism !== organism) return false
-      const hay = `${p.gene} ${p.organism} ${p.fwSeq} ${p.rvSeq} ${p.location} ${p.note}`.toLocaleLowerCase('tr')
+      const hay = `${p.gene} ${p.organism} ${p.fwSeq} ${p.rvSeq} ${p.location} ${p.amount} ${p.note}`.toLocaleLowerCase('tr')
       return words.every((w) => hay.includes(w))
     })
   })
 
   const cols: Col<Primer>[] = [
-    { key: 'gene', label: 'Hedef gen', width: 'minmax(130px,1.2fr)', sort: (p) => p.gene },
-    { key: 'organism', label: 'Canlı türü', width: '100px', sort: (p) => p.organism },
-    { key: 'fw', label: "Forward (5'→3')", width: 'minmax(160px,1.6fr)' },
-    { key: 'rv', label: "Reverse (5'→3')", width: 'minmax(160px,1.6fr)' },
-    { key: 'fwTm', label: 'Fw Tm', width: '72px', align: 'right', sort: (p) => p.fwTm ?? 999 },
-    { key: 'rvTm', label: 'Rv Tm', width: '72px', align: 'right', sort: (p) => p.rvTm ?? 999 },
-    { key: 'amount', label: 'Miktar', width: '110px' },
-    { key: 'loc', label: 'Konum', width: '90px', sort: (p) => p.location },
-    { key: 'date', label: 'Tarih', width: '100px', sort: (p) => p.preparedAt || '' },
+    // sequences reach 30 nt (miRNA) — 238px fits up to ~27 nt; longer ones show … and the full text on hover in monospace; amount/date live in the form and card
+    { key: 'gene', label: 'Hedef gen', width: 'minmax(150px,1fr)', sort: (p) => p.gene },
+    { key: 'organism', label: 'Canlı türü', width: '80px', sort: (p) => p.organism },
+    { key: 'fw', label: "Forward (5'→3')", width: 'minmax(238px,1.5fr)' },
+    { key: 'rv', label: "Reverse (5'→3')", width: 'minmax(238px,1.5fr)' },
+    { key: 'fwTm', label: 'Fw Tm', width: '64px', align: 'right', sort: (p) => p.fwTm ?? 999 },
+    { key: 'rvTm', label: 'Rv Tm', width: '64px', align: 'right', sort: (p) => p.rvTm ?? 999 },
+    { key: 'loc', label: 'Konum', width: '70px', sort: (p) => p.location },
+    { key: 'note', label: 'Not', width: 'minmax(120px,1fr)' },
     { key: 'acts', label: '', width: '76px' },
   ]
 
@@ -72,7 +72,7 @@
 </div>
 <div class="hint">{rows.length} / {store.primers.length} primer · {ui.narrow ? 'düzenlemek için karta dokunun' : 'Tm başlığına tıklayarak sıralayın'}</div>
 
-<VTable minWidth={1080} {rows} {cols} rowKey={(p) => p.id} bind:sortKey bind:sortDir cardHeight={124} onrowdblclick={(p) => (editing = { p, isNew: false })} empty="Primer yok">
+<VTable minWidth={1100} {rows} {cols} rowKey={(p) => p.id} bind:sortKey bind:sortDir cardHeight={124} onrowdblclick={(p) => (editing = { p, isNew: false })} empty="Primer yok">
   {#snippet card(p)}
     <div class="mc">
       <div class="mc-top">
@@ -86,15 +86,14 @@
     </div>
   {/snippet}
   {#snippet cell(p, c)}
-    {#if c.key === 'gene'}<b>{p.gene}</b>
-    {:else if c.key === 'organism'}{p.organism}
-    {:else if c.key === 'fw'}<code title="{p.fwSeq.length} nt · GC {gcPercent(p.fwSeq) ?? '-'}%">{p.fwSeq}</code>
-    {:else if c.key === 'rv'}<code title="{p.rvSeq.length} nt · GC {gcPercent(p.rvSeq) ?? '-'}%">{p.rvSeq}</code>
+    {#if c.key === 'gene'}<b class="tx" title={p.gene}>{p.gene}</b>
+    {:else if c.key === 'organism'}<span class="tx" title={p.organism}>{p.organism}</span>
+    {:else if c.key === 'fw'}<code class="tx" title="{p.fwSeq.length} nt · GC {gcPercent(p.fwSeq) ?? '-'}%">{p.fwSeq}</code>
+    {:else if c.key === 'rv'}<code class="tx" title="{p.rvSeq.length} nt · GC {gcPercent(p.rvSeq) ?? '-'}%">{p.rvSeq}</code>
     {:else if c.key === 'fwTm'}{p.fwTm ?? ''}
     {:else if c.key === 'rvTm'}{p.rvTm ?? ''}
-    {:else if c.key === 'amount'}{p.amount}
-    {:else if c.key === 'loc'}{p.location}
-    {:else if c.key === 'date'}{p.preparedAt ? formatDate(p.preparedAt) : ''}
+    {:else if c.key === 'loc'}<span class="tx" title={p.location}>{p.location}</span>
+    {:else if c.key === 'note'}<span class="tx" title={p.note}>{p.note}</span>
     {:else if c.key === 'acts'}
       <div class="acts">
         <button class="icon" title="Düzenle" onclick={() => (editing = { p, isNew: false })}>✏️</button>

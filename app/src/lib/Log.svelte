@@ -64,9 +64,9 @@
   {/snippet}
   {#snippet cell(l, c)}
     {#if c.key === 'ts'}{fmt(l.ts)}
-    {:else if c.key === 'user'}{l.user}
-    {:else if c.key === 'module'}{l.module}
+    {:else if c.key === 'user'}<span class="tx" title={l.user}>{l.user}</span>
+    {:else if c.key === 'module'}<span class="tx" title={l.module}>{l.module}</span>
     {:else if c.key === 'action'}<span class="badge {kind(l.action)}">{l.action}</span>
-    {:else}<span title={l.detail}>{l.detail}</span>{/if}
+    {:else}<span class="tx" title={l.detail}>{l.detail}</span>{/if}
   {/snippet}
 </VTable>

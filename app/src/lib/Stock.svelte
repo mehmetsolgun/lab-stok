@@ -39,15 +39,16 @@
   })
 
   const cols: Col<ItemRow>[] = [
-    { key: 'name', label: 'Ürün', width: 'minmax(180px,2.2fr)', sort: (r) => r.item.name },
-    { key: 'purpose', label: 'Amaç', width: 'minmax(90px,1fr)', sort: (r) => r.item.purpose },
-    { key: 'storage', label: 'Saklama', width: '100px', sort: (r) => r.item.storage },
-    { key: 'loc', label: 'Konum', width: 'minmax(110px,1.1fr)', sort: (r) => r.location },
+    // widths sized from the lab's real values ("Kimyasal Dolabı", "-80°C Derin Dondurucu", "Genel Kimyasal"…)
+    { key: 'name', label: 'Ürün', width: 'minmax(160px,2fr)', sort: (r) => r.item.name },
+    { key: 'purpose', label: 'Amaç', width: 'minmax(130px,1.1fr)', sort: (r) => r.item.purpose },
+    { key: 'storage', label: 'Saklama', width: 'minmax(140px,1.1fr)', sort: (r) => r.item.storage },
+    { key: 'loc', label: 'Konum', width: 'minmax(90px,1fr)', sort: (r) => r.location },
     { key: 'skt', label: 'SKT', width: '130px', sort: (r) => r.item.skt || '9999' },
-    { key: 'open', label: 'Açık şişe', width: 'minmax(110px,1fr)' },
-    { key: 'sealed', label: 'Kapalı', width: '70px', align: 'right', sort: (r) => r.item.sealed },
-    { key: 'total', label: 'Toplam', width: '80px', align: 'right', sort: (r) => r.total },
-    { key: 'acts', label: '', width: '214px' },
+    { key: 'open', label: 'Açık şişe', width: 'minmax(96px,1fr)' },
+    { key: 'sealed', label: 'Kapalı', width: '60px', align: 'right', sort: (r) => r.item.sealed },
+    { key: 'total', label: 'Toplam', width: '70px', align: 'right', sort: (r) => r.total },
+    { key: 'acts', label: '', width: '215px' }, // 6 buttons × 31px + gaps + cell padding
   ]
 
   function act(err: string) {
@@ -87,7 +88,7 @@
 <div class="hint">{rows.length} / {store.items.length} ürün · {ui.narrow ? 'düzenlemek için karta dokunun' : 'satıra çift tıklayarak düzenleyin'}</div>
 
 <VTable
-  {rows} {cols} rowKey={(r) => r.item.id} {rowClass} bind:sortKey bind:sortDir cardHeight={134}
+  {rows} {cols} rowKey={(r) => r.item.id} {rowClass} bind:sortKey bind:sortDir cardHeight={134} minWidth={1095}
   onrowdblclick={(r) => (editing = { item: { ...r.item }, isNew: false })}
   empty="Eşleşen ürün yok"
 >
@@ -127,9 +128,9 @@
         <div>{r.item.name}{#if r.item.ordered} <span class="badge info">sipariş verildi</span>{/if}</div>
         <div class="sub">{r.item.brand}{r.item.brand && r.item.unit ? ' · ' : ''}{r.item.unit}</div>
       </div>
-    {:else if c.key === 'purpose'}{r.item.purpose}
-    {:else if c.key === 'storage'}{r.item.storage}
-    {:else if c.key === 'loc'}<span title={r.location}>{r.location}</span>
+    {:else if c.key === 'purpose'}<span class="tx" title={r.item.purpose}>{r.item.purpose}</span>
+    {:else if c.key === 'storage'}<span class="tx" title={r.item.storage}>{r.item.storage}</span>
+    {:else if c.key === 'loc'}<span class="tx" title={r.location}>{r.location}</span>
     {:else if c.key === 'skt'}
       {#if r.item.skt}
         {formatDate(r.item.skt)}

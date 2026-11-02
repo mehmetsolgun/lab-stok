@@ -86,7 +86,7 @@
     {:else if c.key === 'qty'}
       <input type="number" min="1" style="width:80px;text-align:right" value={q(r)}
         onchange={(e) => { const m = new Map(qty); m.set(r.item.id, Math.max(1, Number(e.currentTarget.value) || 1)); qty = m }} />
-    {:else if c.key === 'loc'}{r.location}
+    {:else if c.key === 'loc'}<span class="tx" title={r.location}>{r.location}</span>
     {:else if c.key === 'state'}
       {#if r.item.ordered}<span class="badge info">sipariş verildi</span>{:else}<span class="badge bad">sipariş edilmeli</span>{/if}
     {/if}
