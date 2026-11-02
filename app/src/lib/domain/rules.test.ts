@@ -6,7 +6,7 @@ import type { Bottle, Item } from './types'
 
 const item = (o: Partial<Item> = {}): Item => ({
   id: 'i1', brand: 'Sigma', name: 'Etanol', purpose: 'Kimyasal', storage: 'Oda Sıcaklığı', unit: 'Şişe',
-  skt: '', bottleSize: 500, sealed: 2, minStock: 1, cabinet: '', shelf: '', box: '', note: '',
+  skt: '', bottleSize: 500, sizeUnit: 'ml', sealed: 2, minStock: 1, cabinet: '', shelf: '', box: '', note: '',
   ordered: false, version: 1, updatedAt: '', ...o,
 })
 const bottle = (id: string, remaining: number, openedAt = '2026-01-01'): Bottle => ({ id, itemId: 'i1', remaining, openedAt })

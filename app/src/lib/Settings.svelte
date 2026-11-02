@@ -6,6 +6,7 @@
   import { ui } from './ui.svelte'
   import { exportAll } from './export'
   import { makeDemo } from './seed'
+  import { parseImport, type ParseResult } from './importer'
   import type { Categories } from './domain/types'
 
   const groups: { key: keyof Categories; label: string }[] = [
@@ -42,6 +43,25 @@
     await store.deleteDemo()
     busy = false
     ui.toast('Demo veri silindi', 'ok')
+  }
+
+  // import from a labstok-import-v1 JSON file (admin only)
+  let imp = $state<ParseResult | null>(null)
+  let impName = $state('')
+  async function pickFile(e: Event) {
+    const f = (e.currentTarget as HTMLInputElement).files?.[0]
+    imp = null
+    if (!f) return
+    impName = f.name
+    imp = parseImport(await f.text())
+  }
+  async function runImport() {
+    if (!imp?.ok) return
+    busy = true
+    await store.importData(imp.payload)
+    busy = false
+    ui.toast(`İçe aktarıldı: ${imp.payload.items.length} ürün, ${imp.payload.primers.length} primer`, 'ok')
+    imp = null
   }
 
   // "delete everything" needs the admin password plus a typed confirmation
@@ -126,6 +146,30 @@
       {/if}
     </div>
     <p class="hint" style="margin-bottom:0">Demo veri işaretlidir; silince yalnızca o kayıtlar gider, kendi kayıtlarınız kalır.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Dosyadan veri içe aktar</h2>
+    <p class="hint" style="margin-top:0">
+      Hazırlanmış bir içe aktarma dosyasını (.json) yükler. Aynı dosyayı tekrar yüklemek kayıtları çoğaltmaz, günceller.
+      Dosyada kategori listesi varsa mevcut listelerin yerine geçer. Yönetici girişi gerekir.
+    </p>
+    <div class="toolbar">
+      <input type="file" accept=".json,application/json" disabled={!store.isAdmin || busy} onchange={pickFile} />
+      {#if !store.isAdmin}<span class="hint">Önce yönetici girişi yapın.</span>{/if}
+    </div>
+    {#if imp}
+      {#if !imp.ok}
+        <p class="err">⚠ {impName}: {imp.error}</p>
+      {:else}
+        <p style="margin-bottom:.3rem"><b>{impName}</b>: {imp.payload.items.length} ürün, {imp.payload.bottles.length} açık şişe, {imp.payload.primers.length} primer{imp.payload.categories ? ' · kategori listeleri güncellenecek' : ''}.</p>
+        {#if imp.warnings.length}
+          <p class="hint" style="margin:.2rem 0">{imp.warnings.length} uyarı:</p>
+          <ul class="hint" style="margin:0 0 .5rem;padding-left:1.2rem;max-height:7rem;overflow:auto">{#each imp.warnings as w}<li>{w}</li>{/each}</ul>
+        {/if}
+        <button class="btn primary" disabled={busy || !store.isAdmin} onclick={runImport}>⬆ İçe aktar</button>
+      {/if}
+    {/if}
   </div>
 
   <div class="panel">

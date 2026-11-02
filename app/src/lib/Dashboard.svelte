@@ -45,7 +45,7 @@
     <div class="alerts">
       {#each low.slice(0, 12) as r (r.item.id)}
         <div class="alert warn"><b>{r.item.name}</b><span class="sub">{r.location}</span>
-          <span style="margin-left:auto">{r.open.filter((b) => b.remaining / r.item.bottleSize < 0.15).map((b) => b.remaining).join(', ')} {r.item.unit}</span></div>
+          <span style="margin-left:auto">{r.open.filter((b) => b.remaining / r.item.bottleSize < 0.15).map((b) => b.remaining).join(', ')} {r.item.sizeUnit}</span></div>
       {:else}<div class="hint">Azalan şişe yok</div>{/each}
     </div>
   </div>

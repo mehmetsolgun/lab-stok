@@ -14,6 +14,7 @@ export interface Item {
   unit: string
   skt: string // ISO YYYY-MM-DD or ''
   bottleSize: number // capacity of one bottle/pack; 0 = not volume tracked
+  sizeUnit: string // unit of bottleSize and of every open bottle: ml, g, adet, % ...
   sealed: number // unopened boxes/bottles
   minStock: number
   cabinet: string

@@ -7,6 +7,7 @@ import {
 import type { Op, Storage } from './storage/types'
 import { checkAdminPassword, makeAdminSecret, type AdminSecret } from './auth'
 import { isDemoId } from './seed'
+import type { ImportPayload } from './importer'
 
 export interface ItemRow {
   item: Item
@@ -313,6 +314,29 @@ class Store {
     ])
   }
 
+  /** Admin only. Upserts by id (re-importing the same file changes nothing); categories, if given, replace the lists. */
+  async importData(p: ImportPayload) {
+    if (!this.isAdmin) return
+    const upsert = <T extends { id: string }>(cur: T[], inc: T[]) => {
+      const ids = new Set(inc.map((x) => x.id))
+      return [...cur.filter((x) => !ids.has(x.id)), ...inc]
+    }
+    this.items = upsert(this.items, p.items)
+    this.bottles = upsert(this.bottles, p.bottles)
+    this.primers = upsert(this.primers, p.primers)
+    const ops: Op[] = [
+      { t: 'put', table: 'items', rows: p.items },
+      { t: 'put', table: 'bottles', rows: p.bottles },
+      { t: 'put', table: 'primers', rows: p.primers },
+    ]
+    if (p.categories) {
+      this.categories = p.categories
+      ops.push({ t: 'categories', value: p.categories })
+    }
+    const e = this.entry('Ayarlar', 'EKLEME', `Dosyadan içe aktarıldı: ${p.items.length} ürün, ${p.bottles.length} açık şişe, ${p.primers.length} primer.`)
+    await this.commit([...ops, { t: 'log', entries: [e] }])
+  }
+
   get demoCount() {
     return this.items.filter((i) => isDemoId(i.id)).length + this.primers.filter((p) => isDemoId(p.id)).length
   }
@@ -357,7 +381,7 @@ export const store = new Store()
 
 export function blankItem(): Item {
   return {
-    id: newId(), brand: '', name: '', purpose: '', storage: '', unit: '', skt: '', bottleSize: 0, sealed: 1,
+    id: newId(), brand: '', name: '', purpose: '', storage: '', unit: '', skt: '', bottleSize: 0, sizeUnit: '', sealed: 1,
     minStock: 1, cabinet: '', shelf: '', box: '', note: '', ordered: false, version: 0, updatedAt: '',
   }
 }

@@ -4,3 +4,6 @@ dist/
 *.log
 *.db
 Stok_Raporlari/
+
+# Laboratuvar verisi (özel) — herkese açık depoya girmesin
+import-data/

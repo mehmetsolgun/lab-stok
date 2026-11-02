@@ -58,6 +58,9 @@
       <label class="f">Şişe hacmi / paket içi adet
         <input type="number" min="0" step="any" bind:value={f.bottleSize} />
       </label>
+      <label class="f">Hacim / miktar birimi
+        <input type="text" list="sizeunits" bind:value={f.sizeUnit} placeholder="ml, g, adet…" autocomplete="off" />
+      </label>
       <label class="f">Kapalı (açılmamış) adet
         <input type="number" min="0" step="1" bind:value={f.sealed} />
       </label>
@@ -69,6 +72,7 @@
       <label class="f">Kutu<input type="text" bind:value={f.box} placeholder="Kutu 3" /></label>
       <label class="f full">Not<textarea rows="2" bind:value={f.note}></textarea></label>
     </div>
+    <datalist id="sizeunits">{#each ['ml', 'L', 'g', 'kg', 'mg', 'µl', 'adet', '%'] as u}<option value={u}></option>{/each}</datalist>
     <datalist id="brands">{#each brands as b}<option value={b}></option>{/each}</datalist>
     <datalist id="names">{#each names as n}<option value={n}></option>{/each}</datalist>
     {#if error}<p class="err">{error}</p>{/if}

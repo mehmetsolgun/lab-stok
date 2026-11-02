@@ -139,7 +139,7 @@
     {:else if c.key === 'open'}
       {#each r.open as b (b.id)}
         {@const p = fillPercent(r.item, b)}
-        <span title="{b.remaining} / {r.item.bottleSize}" style="display:inline-flex;gap:.25rem;align-items:center">
+        <span title="{b.remaining} / {r.item.bottleSize}{r.item.sizeUnit ? ' ' + r.item.sizeUnit : ''}" style="display:inline-flex;gap:.25rem;align-items:center">
           <span class="bar" class:low={p < 15}><i style:width="{p}%"></i></span><span class="sub">%{p}</span>
         </span>
       {/each}
@@ -171,9 +171,9 @@
     <form id="spendform" onsubmit={doSpend}>
       <p style="margin-top:0"><b>{spending.item.name}</b><br /><span class="sub">{spending.item.brand}</span></p>
       <p class="hint">
-        Açık şişe: {spending.open.length ? spending.open.map((b) => `${b.remaining}`).join(' + ') : 'yok'} · kapalı: {spending.item.sealed} × {spending.item.bottleSize}
+        Açık şişe: {spending.open.length ? spending.open.map((b) => `${b.remaining}`).join(' + ') : 'yok'} · kapalı: {spending.item.sealed} × {spending.item.bottleSize}{spending.item.sizeUnit ? ' ' + spending.item.sizeUnit : ''}
       </p>
-      <label class="f">Harcanan miktar
+      <label class="f">Harcanan miktar{spending.item.sizeUnit ? ` (${spending.item.sizeUnit})` : ''}
         <!-- svelte-ignore a11y_autofocus -->
         <input type="number" min="0" step="any" bind:value={amount} autofocus required />
       </label>

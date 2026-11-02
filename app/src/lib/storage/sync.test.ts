@@ -25,7 +25,7 @@ async function until(cond: () => boolean | Promise<boolean>, ms = 1500) {
 }
 
 const item = (id: string, o: Partial<Item> = {}): Item => ({
-  id, brand: 'Sigma', name: 'Etanol', purpose: 'Kimyasal', storage: '+4°C', unit: 'Şişe', skt: '2027-03-05', bottleSize: 500,
+  id, brand: 'Sigma', name: 'Etanol', purpose: 'Kimyasal', storage: '+4°C', unit: 'Şişe', skt: '2027-03-05', bottleSize: 500, sizeUnit: 'ml',
   sealed: 2, minStock: 1, cabinet: 'Dolap 1', shelf: 'Raf 2', box: '', note: '', ordered: false, version: 1, updatedAt: '2026-11-02', ...o,
 })
 const primer = (id: string): Primer => ({

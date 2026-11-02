@@ -31,7 +31,7 @@ export function makeDemo(nItems: number, nPrimers: number): Database {
       id: did(), brand: rnd(BRANDS), name: `${rnd(NAMES)} ${i + 1}`, purpose: rnd(DEFAULT_CATEGORIES.purpose),
       storage: rnd(DEFAULT_CATEGORIES.storage), unit: rnd(DEFAULT_CATEGORIES.unit),
       skt: Math.random() < 0.8 ? isoIn(Math.floor(Math.random() * 700) - 20) : '',
-      bottleSize: size, sealed: Math.floor(Math.random() * 5), minStock: Math.floor(Math.random() * 4),
+      bottleSize: size, sizeUnit: size ? 'ml' : '', sealed: Math.floor(Math.random() * 5), minStock: Math.floor(Math.random() * 4),
       cabinet: 'Dolap ' + (1 + (i % 8)), shelf: 'Raf ' + (1 + (i % 4)), box: Math.random() < 0.5 ? 'Kutu ' + (1 + (i % 12)) : '',
       note: '', ordered: false, version: 1, updatedAt: now,
     }

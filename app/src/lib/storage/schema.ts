@@ -17,7 +17,7 @@ const b = (v: unknown) => v === true || v === 'true' || v === 'TRUE'
 
 export const toItem = (r: Raw): Item => ({
   id: s(r.id), brand: s(r.brand), name: s(r.name), purpose: s(r.purpose), storage: s(r.storage), unit: s(r.unit),
-  skt: s(r.skt), bottleSize: n(r.bottleSize), sealed: n(r.sealed), minStock: n(r.minStock), cabinet: s(r.cabinet),
+  skt: s(r.skt), bottleSize: n(r.bottleSize), sizeUnit: s(r.sizeUnit), sealed: n(r.sealed), minStock: n(r.minStock), cabinet: s(r.cabinet),
   shelf: s(r.shelf), box: s(r.box), note: s(r.note), ordered: b(r.ordered), version: n(r.version), updatedAt: s(r.updatedAt),
 })
 
