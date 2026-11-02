@@ -73,10 +73,22 @@ class FakeSheet {
   deleteRow(r: number) { this.grid.splice(r - 1, 1) }
 }
 
+export interface Mail {
+  to: string
+  subject: string
+  htmlBody: string
+  attachments?: { name: string; content: string }[]
+}
+
 export interface Backend {
   doPost(e: { postData: { contents: string } }): { text: string }
   setup(): string
   resetKey(): string
+  testEposta(): string
+  gunlukKontrol(): string
+  haftalikOzetKur(): void
+  mails: Mail[]
+  triggers: string[]
   sheets: Map<string, FakeSheet>
   props: Map<string, string>
   fetch: (url: string, init: RequestInit) => Promise<Response>
@@ -87,6 +99,8 @@ export function makeBackend(): Backend {
   const code = readFileSync(resolve(here, '../../../../apps-script/Code.gs'), 'utf8')
   const sheets = new Map<string, FakeSheet>()
   const props = new Map<string, string>()
+  const mails: Mail[] = []
+  const triggers: string[] = []
   const env = {
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ({
@@ -97,15 +111,29 @@ export function makeBackend(): Backend {
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => props.get(k) ?? null, setProperty: (k: string, v: string) => void props.set(k, v) }) },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (text: string) => ({ text, setMimeType() { return this } }) },
-    Utilities: { getUuid: () => crypto.randomUUID() },
+    Utilities: {
+      getUuid: () => crypto.randomUUID(),
+      // only the two patterns the script uses; UTC is good enough for tests
+      formatDate: (d: Date, _tz: string, f: string) => (f === 'u' ? String(d.getUTCDay() || 7) : d.toISOString().slice(0, 10)),
+      newBlob: (content: string, _type: string, name: string) => ({ name, content }),
+    },
+    Session: { getScriptTimeZone: () => 'UTC' },
+    MailApp: { sendEmail: (o: Mail) => void mails.push(o) },
+    ScriptApp: {
+      getProjectTriggers: () => triggers.map((h) => ({ getHandlerFunction: () => h })),
+      deleteTrigger: (t: { getHandlerFunction(): string }) => void triggers.splice(triggers.indexOf(t.getHandlerFunction()), 1),
+      newTrigger: (h: string) => ({ timeBased: () => ({ everyDays: () => ({ atHour: () => ({ create: () => void triggers.push(h) }) }) }) }),
+    },
     Logger: { log() {} },
   }
-  const fn = new Function(...Object.keys(env), code + '\n;return { doPost, setup, resetKey };')
-  const api = fn(...Object.values(env)) as Pick<Backend, 'doPost' | 'setup' | 'resetKey'>
+  const fn = new Function(...Object.keys(env), code + '\n;return { doPost, setup, resetKey, testEposta, gunlukKontrol, haftalikOzetKur };')
+  const api = fn(...Object.values(env)) as Pick<Backend, 'doPost' | 'setup' | 'resetKey' | 'testEposta' | 'gunlukKontrol' | 'haftalikOzetKur'>
   return {
     ...api,
     sheets,
     props,
+    mails,
+    triggers,
     fetch: async (_url, init) => {
       const out = api.doPost({ postData: { contents: String(init.body) } })
       return { json: async () => JSON.parse(out.text) } as Response

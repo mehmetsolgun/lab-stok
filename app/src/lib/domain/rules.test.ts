@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  cleanSeq, daysUntil, gcPercent, isValidSeq, parseDate, spend, statusesOf, suggestedOrder, totalUnits,
+  cleanSeq, daysUntil, gcPercent, isValidSeq, missingOf, parseDate, spend, statusesOf, suggestedOrder, totalUnits,
 } from './rules'
 import type { Bottle, Item } from './types'
 
@@ -82,6 +82,21 @@ describe('dates', () => {
     expect(daysUntil('2026-11-12', T)).toBe(10)
     expect(daysUntil('2026-10-30', T)).toBe(-3)
     expect(daysUntil('', T)).toBeNull()
+  })
+})
+
+describe('missingOf', () => {
+  it('lists empty useful fields', () => {
+    expect(missingOf(item({ skt: '', minStock: 0 }))).toEqual(expect.arrayContaining(['skt', 'location', 'minStock']))
+    expect(missingOf(item({ skt: '2027-01-01', minStock: 2, cabinet: 'Dolap 1', brand: 'X' }))).toEqual([])
+  })
+  it('counts volume as missing only for bottles', () => {
+    const full = { skt: '2027-01-01', minStock: 1, cabinet: 'D', brand: 'X' }
+    expect(missingOf(item({ ...full, unit: 'Şişe', bottleSize: 0 }))).toEqual(['size'])
+    expect(missingOf(item({ ...full, unit: 'Paket', bottleSize: 0 }))).toEqual([])
+  })
+  it('any one of cabinet/shelf/box is enough for location', () => {
+    expect(missingOf(item({ cabinet: '', shelf: 'Raf 2', box: '' }))).not.toContain('location')
   })
 })
 

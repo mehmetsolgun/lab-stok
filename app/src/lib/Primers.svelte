@@ -8,6 +8,12 @@
   import { ui } from './ui.svelte'
 
   let query = $state('')
+  $effect(() => {
+    if (ui.primerQuery) {
+      query = ui.primerQuery
+      ui.primerQuery = ''
+    }
+  })
   let q = $state('')
   let timer = 0
   $effect(() => {

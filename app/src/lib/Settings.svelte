@@ -7,6 +7,7 @@
   import { exportAll } from './export'
   import { makeDemo } from './seed'
   import { parseImport, type ParseResult } from './importer'
+  import { downloadBackup } from './backup'
   import type { Categories } from './domain/types'
 
   const groups: { key: keyof Categories; label: string }[] = [
@@ -45,6 +46,26 @@
     ui.toast('Demo veri silindi', 'ok')
   }
 
+  // weekly e-mail summary (needs the updated Apps Script on the server)
+  let dg = $state({ enabled: false, emails: '', day: 1, backup: false })
+  let dgErr = $state('')
+  $effect(() => {
+    const d = store.digest
+    if (d) dg = { enabled: d.enabled, emails: d.emails.join('\n'), day: d.day, backup: d.backup }
+  })
+  const dgReady = $derived(!!loadConfig() && store.serverCaps.includes('digest'))
+  const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar']
+  function saveDigest(e: SubmitEvent) {
+    e.preventDefault()
+    const emails = [...new Set(dg.emails.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean))]
+    const bad = emails.find((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x))
+    if (bad) return void (dgErr = `Geçersiz e-posta adresi: ${bad}`)
+    if (dg.enabled && !emails.length) return void (dgErr = 'En az bir alıcı e-posta adresi girin.')
+    dgErr = ''
+    void store.saveDigest({ enabled: dg.enabled, emails, day: Number(dg.day), backup: dg.backup, appUrl: location.origin + location.pathname })
+    ui.toast('E-posta ayarları kaydedildi', 'ok')
+  }
+
   // import from a labstok-import-v1 JSON file (admin only)
   let imp = $state.raw<ParseResult | null>(null) // raw: keep plain objects, never a deep proxy
   let impName = $state('')
@@ -61,6 +82,22 @@
     await store.importData(imp.payload)
     busy = false
     ui.toast(`İçe aktarıldı: ${imp.payload.items.length} ürün, ${imp.payload.primers.length} primer`, 'ok')
+    imp = null
+  }
+
+  // restore = replace everything with a backup file (admin + typed confirmation)
+  let restoreOpen = $state(false)
+  let restoreText = $state('')
+  const restoreOk = $derived(restoreText.trim().replace(/[İIı]/g, 'i').toLowerCase() === 'sil')
+  async function doRestore(e: SubmitEvent) {
+    e.preventDefault()
+    if (!restoreOk || !imp?.ok) return
+    busy = true
+    await store.restoreAll(imp.payload)
+    busy = false
+    restoreOpen = false
+    restoreText = ''
+    ui.toast('Yedekten geri yüklendi', 'ok')
     imp = null
   }
 
@@ -140,12 +177,44 @@
     <h2>Rapor ve veri</h2>
     <div class="toolbar">
       <button class="btn primary" disabled={busy} onclick={exp}>📊 Tüm veriyi Excel'e aktar</button>
+      <button class="btn" onclick={downloadBackup}>💾 Yedek indir (JSON)</button>
       <button class="btn" disabled={busy || store.demoCount > 0} onclick={demo}>🧪 Demo veri ekle (5000 ürün)</button>
       {#if store.demoCount > 0}
         <button class="btn danger" disabled={busy} onclick={removeDemo}>🧹 Demo veriyi sil ({store.demoCount})</button>
       {/if}
     </div>
     <p class="hint" style="margin-bottom:0">Demo veri işaretlidir; silince yalnızca o kayıtlar gider, kendi kayıtlarınız kalır.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Haftalık e-posta özeti</h2>
+    {#if !loadConfig()}
+      <p class="hint" style="margin:0">Bu özellik Google E-Tablo bağlantısı gerektirir (şu an bu bilgisayarda yerel modda çalışıyorsunuz).</p>
+    {:else if !store.serverCaps.includes('digest')}
+      <p class="hint" style="margin:0">
+        Bunun için E-Tablodaki Apps Script kodunun güncellenmesi gerekir. <code>KURULUM.md</code> içindeki "Güncelleme: haftalık e-posta" adımlarını izleyin.
+      </p>
+    {:else}
+      <p class="hint" style="margin-top:0">
+        Seçtiğiniz gün sabahı kritik stok, SKT'si yaklaşan ve azalan ürünler e-postayla gelir; uygulama açık olmasa da çalışır.
+        Yedek dosyası eklenirse e-postanız aynı zamanda güvenli bir yedek olur.
+      </p>
+      <form onsubmit={saveDigest} style="display:grid;gap:.6rem;max-width:520px">
+        <label style="display:flex;gap:.5rem;align-items:center"><input type="checkbox" bind:checked={dg.enabled} disabled={!store.isAdmin} /> E-posta özeti açık</label>
+        <label class="f">Alıcılar (her satıra bir adres)
+          <textarea rows="3" bind:value={dg.emails} disabled={!store.isAdmin} placeholder={'ayse@ornek.com\nmehmet@ornek.com'}></textarea>
+        </label>
+        <label class="f">Gönderim günü
+          <select bind:value={dg.day} disabled={!store.isAdmin}>{#each DAYS as d, i}<option value={i + 1}>{d}</option>{/each}</select>
+        </label>
+        <label style="display:flex;gap:.5rem;align-items:center"><input type="checkbox" bind:checked={dg.backup} disabled={!store.isAdmin} /> E-postaya yedek dosyası ekle</label>
+        {#if dgErr}<p class="err" style="margin:0">{dgErr}</p>{/if}
+        <div class="toolbar">
+          <button class="btn primary" type="submit" disabled={!store.isAdmin}>Kaydet</button>
+          {#if !store.isAdmin}<span class="hint">Yönetici girişi gerekir.</span>{/if}
+        </div>
+      </form>
+    {/if}
   </div>
 
   <div class="panel">
@@ -167,7 +236,10 @@
           <p class="hint" style="margin:.2rem 0">{imp.warnings.length} uyarı:</p>
           <ul class="hint" style="margin:0 0 .5rem;padding-left:1.2rem;max-height:7rem;overflow:auto">{#each imp.warnings as w}<li>{w}</li>{/each}</ul>
         {/if}
-        <button class="btn primary" disabled={busy || !store.isAdmin} onclick={runImport}>⬆ İçe aktar</button>
+        <div class="toolbar">
+          <button class="btn primary" disabled={busy || !store.isAdmin} onclick={runImport}>⬆ İçe aktar (ekle / güncelle)</button>
+          <button class="btn danger" disabled={busy || !store.isAdmin} onclick={() => (restoreOpen = true)}>♻ Yedekten geri yükle (mevcut veri silinir)</button>
+        </div>
       {/if}
     {/if}
   </div>
@@ -185,6 +257,25 @@
       {#if !store.isAdmin}<span class="hint">Yönetici girişi gerekir (yukarıdaki "Üyeler ve yönetici" bölümü).</span>{/if}
     </div>
   </div>
+
+  {#if restoreOpen && imp?.ok}
+    <Dialog title="Yedekten geri yükle" width="460px" onclose={() => { restoreOpen = false; restoreText = '' }}>
+      <form id="restoreform" onsubmit={doRestore}>
+        <p style="margin-top:0">
+          Şu anki <b>{store.items.length} ürün</b> ve <b>{store.primers.length} primer</b> silinecek; yerine dosyadaki
+          <b>{imp.payload.items.length} ürün</b>, <b>{imp.payload.primers.length} primer</b> gelecek. Kayıtlar (log) korunur.
+        </p>
+        <label class="f">Onaylamak için <b>SİL</b> yazın
+          <!-- svelte-ignore a11y_autofocus -->
+          <input type="text" bind:value={restoreText} autocomplete="off" autofocus />
+        </label>
+      </form>
+      {#snippet footer()}
+        <button class="btn" type="button" onclick={() => { restoreOpen = false; restoreText = '' }}>Vazgeç</button>
+        <button class="btn primary danger" type="submit" form="restoreform" disabled={!restoreOk || busy}>Geri yükle</button>
+      {/snippet}
+    </Dialog>
+  {/if}
 
   {#if wipeOpen}
     <Dialog title="Tüm veriyi sil" width="460px" onclose={() => { wipeOpen = false; wipeText = '' }}>

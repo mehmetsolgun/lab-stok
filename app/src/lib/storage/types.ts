@@ -1,4 +1,4 @@
-import type { Categories, Database, LogEntry } from '../domain/types'
+import type { Categories, Database, DigestConfig, LogEntry } from '../domain/types'
 
 export type Table = 'items' | 'bottles' | 'primers'
 
@@ -9,6 +9,7 @@ export type Op =
   | { t: 'categories'; value: Categories }
   | { t: 'members'; value: string[] }
   | { t: 'admin'; value: { salt: string; hash: string } }
+  | { t: 'digest'; value: DigestConfig } // needs a server (Apps Script) that lists 'digest' in its caps
 
 /**
  * Plain deep copy of operations. UI state may hand us Svelte `$state` proxies, which IndexedDB cannot
@@ -26,6 +27,8 @@ export interface SyncStatus {
 /** Anything that can persist the lab database (IndexedDB, or IndexedDB cache + Google Sheets). */
 export interface Storage {
   readonly name: string
+  /** Features the server announced (e.g. 'digest'); empty for old servers and for local-only storage. */
+  caps?: string[]
   /** Fast: returns what is stored on this computer. */
   load(): Promise<Database>
   apply(ops: Op[]): Promise<void>

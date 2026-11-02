@@ -52,5 +52,5 @@ export function makeDemo(nItems: number, nPrimers: number): Database {
       preparedAt: isoIn(-Math.floor(Math.random() * 400)), note: '', version: 1, updatedAt: now,
     })
   }
-  return { items, bottles, primers, log: [], categories: DEFAULT_CATEGORIES, members: [], admin: null }
+  return { items, bottles, primers, log: [], categories: DEFAULT_CATEGORIES, members: [], admin: null, digest: null }
 }

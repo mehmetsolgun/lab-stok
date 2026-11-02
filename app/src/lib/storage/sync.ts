@@ -12,6 +12,7 @@ const RETRY_MS = 8000
 export class SyncStorage implements Storage {
   readonly name = 'Google E-Tablo (yerel önbellekli)'
   onStatus?: (s: SyncStatus) => void
+  caps: string[] = []
 
   private outbox: Op[][] = []
   private lastVersion = -1
@@ -42,10 +43,11 @@ export class SyncStorage implements Storage {
   async pull(): Promise<Database | null> {
     if (this.outbox.length || this.flushing) return null
     const epoch = this.epoch
-    const { version, db } = await this.remote.load()
+    const { version, db, caps } = await this.remote.load()
     // the user edited while we were downloading: keep their edit, pull again later
     if (epoch !== this.epoch || this.outbox.length) return null
     await this.local.reset(db)
+    this.caps = caps
     this.lastVersion = version
     this.setError('')
     return db

@@ -9,6 +9,7 @@ export interface ImportPayload {
   bottles: Bottle[]
   primers: Primer[]
   categories: Categories | null
+  members: string[] | null // only backups carry the member list
 }
 
 export type ParseResult = { ok: true; payload: ImportPayload; warnings: string[] } | { ok: false; error: string }
@@ -74,5 +75,10 @@ export function parseImport(text: string): ParseResult {
     ]
     for (const [k, v, who] of need) if (v && !c[k].includes(v)) return { ok: false, error: `'${who}' için kategori listesinde olmayan değer: ${k} = '${v}'` }
   }
-  return { ok: true, payload: { items, bottles, primers, categories }, warnings }
+  let members: string[] | null = null
+  if (raw.members !== undefined) {
+    members = strList(raw.members)
+    if (!members) return { ok: false, error: '"members" bir isim listesi olmalı.' }
+  }
+  return { ok: true, payload: { items, bottles, primers, categories, members }, warnings }
 }

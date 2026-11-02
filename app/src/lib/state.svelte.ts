@@ -1,5 +1,5 @@
 import {
-  DEFAULT_CATEGORIES, type Bottle, type Categories, type Database, type Item, type LogEntry, type Primer,
+  DEFAULT_CATEGORIES, type Bottle, type Categories, type Database, type DigestConfig, type Item, type LogEntry, type Primer,
 } from './domain/types'
 import {
   daysUntil, newId, openBottlesOf, openSealed, spend, statusesOf, todayIso, totalUnits, type Status,
@@ -8,6 +8,7 @@ import type { Op, Storage } from './storage/types'
 import { checkAdminPassword, makeAdminSecret, type AdminSecret } from './auth'
 import { isDemoId } from './seed'
 import type { ImportPayload } from './importer'
+import { ui } from './ui.svelte'
 
 export interface ItemRow {
   item: Item
@@ -20,6 +21,16 @@ export interface ItemRow {
 }
 
 const lc = (s: string) => s.toLocaleLowerCase('tr')
+
+export interface ItemSnap {
+  item: Item
+  bottles: Bottle[]
+}
+
+const FIELD_LABEL: Partial<Record<keyof Item, string>> = {
+  skt: 'SKT', cabinet: 'Dolap', shelf: 'Raf', box: 'Kutu', minStock: 'Minimum stok', bottleSize: 'Hacim', sizeUnit: 'Birim',
+  storage: 'Saklama', purpose: 'Amaç', brand: 'Marka', unit: 'Ambalaj', name: 'Ad', note: 'Not',
+}
 
 export function locationOf(i: Item): string {
   return [i.cabinet, i.shelf, i.box].filter(Boolean).join(' / ')
@@ -68,6 +79,9 @@ class Store {
   isAdmin = $state(false) // unlocked for this session only
 
   queued = $state(0)
+  /** What the server (Apps Script) announced it can do; e.g. 'digest' for the weekly e-mail. */
+  serverCaps = $state.raw<string[]>([])
+  digest = $state.raw<DigestConfig | null>(null)
   private pollTimer = 0
 
   /**
@@ -84,7 +98,10 @@ class Store {
     const db = await storage.load()
     this.applyAll(db)
     if (storage.pull) {
-      const first = storage.pull().then((fresh) => fresh && this.applyAll(fresh))
+      const first = storage.pull().then((fresh) => {
+        this.serverCaps = storage.caps ?? []
+        if (fresh) this.applyAll(fresh)
+      })
       if (!db.admin) await first
       else first.catch((e) => (this.syncError = e instanceof Error ? e.message : String(e)))
       this.startPolling()
@@ -98,7 +115,10 @@ class Store {
       if (document.hidden || !this.storage.poll) return
       try {
         const fresh = await this.storage.poll()
-        if (fresh) this.applyAll(fresh)
+        if (fresh) {
+          this.serverCaps = this.storage.caps ?? []
+          this.applyAll(fresh)
+        }
         if (!this.queued) this.syncError = ''
       } catch (e) {
         this.syncError = e instanceof Error ? e.message : String(e)
@@ -121,6 +141,7 @@ class Store {
     this.apply(db)
     this.members = db.members
     this.adminSecret = db.admin
+    this.digest = db.digest
   }
 
   apply(db: Database) {
@@ -162,6 +183,14 @@ class Store {
     await this.commit([{ t: 'admin', value: secret }])
   }
 
+  /** Admin only. The server must announce the 'digest' capability, otherwise an old Apps Script would reject the change. */
+  saveDigest(cfg: DigestConfig) {
+    if (!this.isAdmin || !this.serverCaps.includes('digest')) return
+    this.digest = cfg
+    const e = this.entry('Ayarlar', 'GÜNCELLEME', cfg.enabled ? `Haftalık e-posta özeti açıldı (${cfg.emails.length} alıcı).` : 'Haftalık e-posta özeti kapatıldı.')
+    return this.commit([{ t: 'digest', value: cfg }, { t: 'log', entries: [e] }])
+  }
+
   saveMembers(names: string[], what: string) {
     if (!this.isAdmin) return
     this.members = names
@@ -181,8 +210,8 @@ class Store {
     }
   }
 
-  private entry(module: string, action: LogEntry['action'], detail: string): LogEntry {
-    const e: LogEntry = { ts: new Date().toISOString(), user: this.user, module, action, detail }
+  private entry(module: string, action: LogEntry['action'], detail: string, ref?: string): LogEntry {
+    const e: LogEntry = { ts: new Date().toISOString(), user: this.user, module, action, detail, ...(ref ? { ref } : {}) }
     this.log = [...this.log, e]
     return e
   }
@@ -191,7 +220,7 @@ class Store {
   saveItem(input: Item, isNew: boolean) {
     const item = { ...input, version: input.version + 1, updatedAt: new Date().toISOString() }
     this.items = isNew ? [...this.items, item] : this.items.map((i) => (i.id === item.id ? item : i))
-    const e = this.entry('Stok Sayım', isNew ? 'EKLEME' : 'GÜNCELLEME', `'${item.name}' ${isNew ? 'eklendi' : 'güncellendi'}.`)
+    const e = this.entry('Stok Sayım', isNew ? 'EKLEME' : 'GÜNCELLEME', `'${item.name}' ${isNew ? 'eklendi' : 'güncellendi'}.`, item.id)
     return this.commit([{ t: 'put', table: 'items', rows: [item] }, { t: 'log', entries: [e] }])
   }
 
@@ -201,7 +230,7 @@ class Store {
     const gone = this.bottles.filter((b) => b.itemId === id).map((b) => b.id)
     this.items = this.items.filter((i) => i.id !== id)
     this.bottles = this.bottles.filter((b) => b.itemId !== id)
-    const e = this.entry('Stok Sayım', 'SİLME', `'${item.name}' silindi.`)
+    const e = this.entry('Stok Sayım', 'SİLME', `'${item.name}' silindi.`, id)
     return this.commit([
       { t: 'del', table: 'items', ids: [id] },
       { t: 'del', table: 'bottles', ids: gone },
@@ -209,57 +238,144 @@ class Store {
     ])
   }
 
-  /** +1 / -1 sealed box. Returns an error message or ''. */
-  adjustSealed(id: string, delta: 1 | -1): string {
+  // ---- undo ----
+  /** State of one item and its open bottles: enough to undo any stock action on it. */
+  private snap(id: string): ItemSnap | null {
+    const item = this.items.find((i) => i.id === id)
+    return item ? { item: { ...item }, bottles: this.bottles.filter((b) => b.itemId === id).map((b) => ({ ...b })) } : null
+  }
+
+  private offerUndo(text: string, snap: ItemSnap | null) {
+    if (snap) ui.toast(text, 'ok', { label: 'Geri al', run: () => this.restore(snap) })
+  }
+
+  /** Put an item back to an earlier snapshot (the "Geri al" button). */
+  restore(s: ItemSnap) {
+    const now = this.items.find((i) => i.id === s.item.id)
+    if (!now) return ui.toast('Ürün artık yok, geri alınamadı.')
+    const restored = { ...s.item, version: now.version + 1, updatedAt: new Date().toISOString() }
+    const keep = new Set(s.bottles.map((b) => b.id))
+    const drop = this.bottles.filter((b) => b.itemId === s.item.id && !keep.has(b.id)).map((b) => b.id)
+    this.items = this.items.map((i) => (i.id === s.item.id ? restored : i))
+    this.bottles = [...this.bottles.filter((b) => b.itemId !== s.item.id), ...s.bottles]
+    const e = this.entry('Stok Sayım', 'GÜNCELLEME', `'${s.item.name}' için son işlem geri alındı.`, s.item.id)
+    void this.commit([
+      { t: 'put', table: 'items', rows: [restored] },
+      { t: 'put', table: 'bottles', rows: s.bottles },
+      { t: 'del', table: 'bottles', ids: drop },
+      { t: 'log', entries: [e] },
+    ])
+    ui.toast('Geri alındı', 'ok')
+  }
+
+  // ---- stock actions (return an error message, or '' on success) ----
+  /** +1 / -1 sealed box. */
+  adjustSealed(id: string, delta: 1 | -1, quiet = false): string {
     const item = this.items.find((i) => i.id === id)
     if (!item) return 'Ürün bulunamadı.'
     if (item.sealed + delta < 0) return 'Kapalı adet sıfırın altına düşemez.'
+    const before = this.snap(id)
     const next = { ...item, sealed: item.sealed + delta, version: item.version + 1, updatedAt: new Date().toISOString() }
     // a delivery clears the "ordered" flag
     if (delta > 0) next.ordered = false
     this.items = this.items.map((i) => (i.id === id ? next : i))
-    const e = this.entry('Stok Sayım', 'GÜNCELLEME', `'${item.name}' kapalı adedi ${delta > 0 ? 'artırıldı' : 'azaltıldı'} (Yeni: ${next.sealed}).`)
+    const e = this.entry('Stok Sayım', 'GÜNCELLEME', `'${item.name}' kapalı adedi ${delta > 0 ? 'artırıldı' : 'azaltıldı'} (Yeni: ${next.sealed}).`, id)
+    void this.commit([{ t: 'put', table: 'items', rows: [next] }, { t: 'log', entries: [e] }])
+    if (!quiet) this.offerUndo(`'${item.name}': kapalı adet ${next.sealed}`, before)
+    return ''
+  }
+
+  /** Counting: set the sealed count to what was actually counted. */
+  setSealed(id: string, count: number): string {
+    const item = this.items.find((i) => i.id === id)
+    if (!item) return 'Ürün bulunamadı.'
+    if (!Number.isInteger(count) || count < 0) return 'Adet 0 veya daha büyük bir tam sayı olmalı.'
+    if (count === item.sealed) return ''
+    const next = { ...item, sealed: count, version: item.version + 1, updatedAt: new Date().toISOString() }
+    if (count > item.sealed) next.ordered = false
+    this.items = this.items.map((i) => (i.id === id ? next : i))
+    const e = this.entry('Stok Sayım', 'GÜNCELLEME', `Sayım: '${item.name}' kapalı adedi ${item.sealed} → ${count}.`, id)
     void this.commit([{ t: 'put', table: 'items', rows: [next] }, { t: 'log', entries: [e] }])
     return ''
   }
 
-  spendItem(id: string, amount: number): string {
+  /** Counting: set how much is left in one open bottle. */
+  setBottleRemaining(bottleId: string, remaining: number): string {
+    const b = this.bottles.find((x) => x.id === bottleId)
+    const item = b && this.items.find((i) => i.id === b.itemId)
+    if (!b || !item) return 'Şişe bulunamadı.'
+    if (!(remaining >= 0) || remaining > item.bottleSize) return `Kalan miktar 0 ile ${item.bottleSize} arasında olmalı.`
+    if (remaining === b.remaining) return ''
+    const next = { ...b, remaining }
+    this.bottles = this.bottles.map((x) => (x.id === bottleId ? next : x))
+    const unit = item.sizeUnit ? ' ' + item.sizeUnit : ''
+    const e = this.entry('Stok Sayım', 'GÜNCELLEME', `Sayım: '${item.name}' açık şişesi ${b.remaining} → ${remaining}${unit}.`, item.id)
+    void this.commit([{ t: 'put', table: 'bottles', rows: [next] }, { t: 'log', entries: [e] }])
+    return ''
+  }
+
+  spendItem(id: string, amount: number, quiet = false): string {
     const item = this.items.find((i) => i.id === id)
     if (!item) return 'Ürün bulunamadı.'
+    const before = this.snap(id)
     const r = spend(item, this.bottles, amount, this.today)
     if (!r.ok) return r.error
     const updated = { ...r.item, version: item.version + 1, updatedAt: new Date().toISOString() }
     const keptIds = new Set(r.bottles.map((b) => b.id))
-    const before = this.bottles.filter((b) => b.itemId === id)
-    const removed = before.filter((b) => !keptIds.has(b.id)).map((b) => b.id)
+    const removed = this.bottles.filter((b) => b.itemId === id && !keptIds.has(b.id)).map((b) => b.id)
     this.items = this.items.map((i) => (i.id === id ? updated : i))
     this.bottles = [...this.bottles.filter((b) => b.itemId !== id), ...r.bottles]
     const extra = r.opened ? ` (${r.opened} yeni ${item.unit.toLocaleLowerCase('tr')} açıldı)` : ''
-    const e = this.entry('Stok Sayım', 'HARCAMA', `'${item.name}' ürününden ${amount} birim harcandı${extra}.`)
+    const e = this.entry('Stok Sayım', 'HARCAMA', `'${item.name}' ürününden ${amount}${item.sizeUnit ? ' ' + item.sizeUnit : ' birim'} harcandı${extra}.`, id)
     void this.commit([
       { t: 'put', table: 'items', rows: [updated] },
       { t: 'put', table: 'bottles', rows: r.bottles },
       { t: 'del', table: 'bottles', ids: removed },
       { t: 'log', entries: [e] },
     ])
+    if (!quiet) this.offerUndo(`'${item.name}': ${amount}${item.sizeUnit ? ' ' + item.sizeUnit : ''} harcandı`, before)
     return ''
   }
 
-  openNew(id: string): string {
+  openNew(id: string, quiet = false): string {
     const item = this.items.find((i) => i.id === id)
     if (!item) return 'Ürün bulunamadı.'
+    const before = this.snap(id)
     const r = openSealed(item, this.today)
     if (!r) return 'Kapalı ürün kalmadı.'
     const updated = { ...r.item, version: item.version + 1, updatedAt: new Date().toISOString() }
     this.items = this.items.map((i) => (i.id === id ? updated : i))
     this.bottles = [...this.bottles, r.bottle]
-    const e = this.entry('Stok Sayım', 'GÜNCELLEME', `'${item.name}' için yeni şişe/paket açıldı.`)
+    const e = this.entry('Stok Sayım', 'GÜNCELLEME', `'${item.name}' için yeni şişe/paket açıldı.`, id)
     void this.commit([
       { t: 'put', table: 'items', rows: [updated] },
       { t: 'put', table: 'bottles', rows: [r.bottle] },
       { t: 'log', entries: [e] },
     ])
+    if (!quiet) this.offerUndo(`'${item.name}': yeni şişe açıldı`, before)
     return ''
+  }
+
+  /** Edit some fields of one or many items at once (inline editing, bulk editing). Returns how many changed. */
+  patchItems(ids: string[], patch: Partial<Item>): number {
+    const set = new Set(ids)
+    const rows: Item[] = []
+    const now = new Date().toISOString()
+    this.items = this.items.map((i) => {
+      if (!set.has(i.id)) return i
+      const changed = (Object.keys(patch) as (keyof Item)[]).some((k) => i[k] !== patch[k])
+      if (!changed) return i
+      const n = { ...i, ...patch, version: i.version + 1, updatedAt: now }
+      rows.push(n)
+      return n
+    })
+    if (!rows.length) return 0
+    const what = (Object.keys(patch) as (keyof Item)[]).map((k) => `${FIELD_LABEL[k] ?? k}: ${patch[k] === '' ? '(boş)' : patch[k]}`).join(', ')
+    const e = rows.length === 1
+      ? this.entry('Stok Sayım', 'GÜNCELLEME', `'${rows[0].name}' güncellendi (${what}).`, rows[0].id)
+      : this.entry('Stok Sayım', 'GÜNCELLEME', `${rows.length} ürün toplu güncellendi (${what}).`)
+    void this.commit([{ t: 'put', table: 'items', rows }, { t: 'log', entries: [e] }])
+    return rows.length
   }
 
   setOrdered(ids: string[], ordered: boolean) {
@@ -333,8 +449,19 @@ class Store {
       this.categories = p.categories
       ops.push({ t: 'categories', value: p.categories })
     }
+    if (p.members?.length) {
+      this.members = p.members
+      ops.push({ t: 'members', value: p.members })
+    }
     const e = this.entry('Ayarlar', 'EKLEME', `Dosyadan içe aktarıldı: ${p.items.length} ürün, ${p.bottles.length} açık şişe, ${p.primers.length} primer.`)
     await this.commit([...ops, { t: 'log', entries: [e] }])
+  }
+
+  /** Admin only: make the data exactly what the backup holds (everything else is deleted first). */
+  async restoreAll(p: ImportPayload) {
+    if (!this.isAdmin) return
+    await this.clearAllData()
+    await this.importData(p)
   }
 
   get demoCount() {

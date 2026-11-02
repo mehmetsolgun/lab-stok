@@ -2,6 +2,7 @@
   import VTable from './VTable.svelte'
   import Dialog from './Dialog.svelte'
   import ItemForm from './ItemForm.svelte'
+  import SpendDialog from './SpendDialog.svelte'
   import type { Col } from './cols'
   import { blankItem, store, type ItemRow } from './state.svelte'
   import { fillPercent, formatDate } from './domain/rules'
@@ -18,9 +19,7 @@
   })
 
   let editing = $state<{ item: ReturnType<typeof blankItem>; isNew: boolean } | null>(null)
-  let spending = $state<ItemRow | null>(null)
-  let amount = $state<number | null>(null)
-  let spendErr = $state('')
+  let spending = $state('') // id of the item whose spend dialog is open
   let confirmDel = $state<ItemRow | null>(null)
   let sortKey = $state('name')
   let sortDir = $state<1 | -1>(1)
@@ -57,18 +56,15 @@
 
   function openSpend(r: ItemRow) {
     if (r.item.bottleSize <= 0) return ui.toast('Bu ürün için şişe hacmi tanımlı değil. Düzenleyip hacim girin ya da +/− kullanın.')
-    spending = r
-    amount = null
-    spendErr = ''
+    spending = r.item.id
   }
 
-  function doSpend(e: SubmitEvent) {
-    e.preventDefault()
-    if (!spending) return
-    const err = store.spendItem(spending.item.id, Number(amount))
-    if (err) spendErr = err
-    else spending = null
-  }
+  $effect(() => {
+    if (ui.newItem) {
+      ui.newItem = false
+      editing = { item: blankItem(), isNew: true }
+    }
+  })
 
   function rowClass(r: ItemRow) {
     return r.statuses.includes('expired') ? 'expired' : ''
@@ -85,11 +81,11 @@
   </div>
   <button class="btn primary fab" aria-label="Yeni ürün" onclick={() => (editing = { item: blankItem(), isNew: true })}>＋<span class="txt"> Yeni ürün <span class="sub">(N)</span></span></button>
 </div>
-<div class="hint">{rows.length} / {store.items.length} ürün · {ui.narrow ? 'düzenlemek için karta dokunun' : 'satıra çift tıklayarak düzenleyin'}</div>
+<div class="hint">{rows.length} / {store.items.length} ürün · {ui.narrow ? 'ayrıntı için karta dokunun' : 'ürün adına tıklayın: ayrıntı, geçmiş · satıra çift tıklayın: düzenle'}</div>
 
 <VTable
   {rows} {cols} rowKey={(r) => r.item.id} {rowClass} bind:sortKey bind:sortDir cardHeight={134} minWidth={1095}
-  onrowdblclick={(r) => (editing = { item: { ...r.item }, isNew: false })}
+  onrowdblclick={(r) => (ui.narrow ? ui.openItem(r.item.id) : (editing = { item: { ...r.item }, isNew: false }))}
   empty="Eşleşen ürün yok"
 >
   {#snippet card(r)}
@@ -124,10 +120,10 @@
   {/snippet}
   {#snippet cell(r, c)}
     {#if c.key === 'name'}
-      <div class="name" title="{r.item.brand} {r.item.name}">
-        <div>{r.item.name}{#if r.item.ordered} <span class="badge info">sipariş verildi</span>{/if}</div>
-        <div class="sub">{r.item.brand}{r.item.brand && r.item.unit ? ' · ' : ''}{r.item.unit}</div>
-      </div>
+      <button class="link name" title="{r.item.brand} {r.item.name}" onclick={() => ui.openItem(r.item.id)}>
+        <span class="blk">{r.item.name}{#if r.item.ordered} <span class="badge info">sipariş verildi</span>{/if}</span>
+        <span class="blk sub">{r.item.brand}{r.item.brand && r.item.unit ? ' · ' : ''}{r.item.unit}</span>
+      </button>
     {:else if c.key === 'purpose'}<span class="tx" title={r.item.purpose}>{r.item.purpose}</span>
     {:else if c.key === 'storage'}<span class="tx" title={r.item.storage}>{r.item.storage}</span>
     {:else if c.key === 'loc'}<span class="tx" title={r.location}>{r.location}</span>
@@ -168,24 +164,7 @@
 {/if}
 
 {#if spending}
-  <Dialog title="Harcama yap" width="420px" onclose={() => (spending = null)}>
-    <form id="spendform" onsubmit={doSpend}>
-      <p style="margin-top:0"><b>{spending.item.name}</b><br /><span class="sub">{spending.item.brand}</span></p>
-      <p class="hint">
-        Açık şişe: {spending.open.length ? spending.open.map((b) => `${b.remaining}`).join(' + ') : 'yok'} · kapalı: {spending.item.sealed} × {spending.item.bottleSize}{spending.item.sizeUnit ? ' ' + spending.item.sizeUnit : ''}
-      </p>
-      <label class="f">Harcanan miktar{spending.item.sizeUnit ? ` (${spending.item.sizeUnit})` : ''}
-        <!-- svelte-ignore a11y_autofocus -->
-        <input type="number" min="0" step="any" bind:value={amount} autofocus required />
-      </label>
-      <p class="hint">En eski açık şişeden düşer; biterse yeni şişe otomatik açılır.</p>
-      {#if spendErr}<p class="err">{spendErr}</p>{/if}
-    </form>
-    {#snippet footer()}
-      <button class="btn" onclick={() => (spending = null)}>İptal</button>
-      <button class="btn primary" type="submit" form="spendform">Düş</button>
-    {/snippet}
-  </Dialog>
+  <SpendDialog itemId={spending} onclose={() => (spending = '')} />
 {/if}
 
 {#if confirmDel}

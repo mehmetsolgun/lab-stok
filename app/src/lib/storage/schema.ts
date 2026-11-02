@@ -32,6 +32,7 @@ export const toPrimer = (r: Raw): Primer => ({
 
 export const toLog = (r: Raw): LogEntry => ({
   ts: s(r.ts), user: s(r.user), module: s(r.module), action: s(r.action) as LogEntry['action'], detail: s(r.detail),
+  ...(s(r.ref) ? { ref: s(r.ref) } : {}),
 })
 
 function parseMeta<T>(v: unknown, fallback: T): T {
@@ -44,6 +45,7 @@ function parseMeta<T>(v: unknown, fallback: T): T {
 }
 
 export interface RemoteLoad {
+  caps?: string[]
   tables: { items: Raw[]; bottles: Raw[]; primers: Raw[]; log: Raw[] }
   meta: Record<string, unknown>
 }
@@ -58,5 +60,6 @@ export function toDatabase(r: RemoteLoad): Database {
     categories: { ...DEFAULT_CATEGORIES, ...cats },
     members: parseMeta<string[]>(r.meta.members, []),
     admin: parseMeta<Database['admin']>(r.meta.admin, null),
+    digest: parseMeta<Database['digest']>(r.meta.digest, null),
   }
 }

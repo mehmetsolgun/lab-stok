@@ -48,6 +48,16 @@ export interface LogEntry {
   module: string
   action: 'EKLEME' | 'GÜNCELLEME' | 'SİLME' | 'HARCAMA'
   detail: string
+  ref?: string // id of the item/primer this entry is about (older entries have none)
+}
+
+/** Weekly e-mail summary, sent by the Apps Script on the server. day: 1 = Monday … 7 = Sunday. */
+export interface DigestConfig {
+  enabled: boolean
+  emails: string[]
+  day: number
+  backup: boolean // attach a backup file to the e-mail
+  appUrl?: string // link shown in the e-mail
 }
 
 export interface Categories {
@@ -65,6 +75,7 @@ export interface Database {
   categories: Categories
   members: string[]
   admin: { salt: string; hash: string } | null
+  digest: DigestConfig | null
 }
 
 export const DEFAULT_CATEGORIES: Categories = {

@@ -5,7 +5,7 @@
 
   let {
     rows, cols, cell, card, rowKey, onrowdblclick, rowClass, sortKey = $bindable(''), sortDir = $bindable<1 | -1>(1),
-    rowHeight = 38, cardHeight = 96, empty = 'Kayıt yok', minWidth = 980,
+    rowHeight = 38, cardHeight = 96, cardHeightOf, empty = 'Kayıt yok', minWidth = 980,
   }: {
     minWidth?: number
     rows: R[]
@@ -21,6 +21,8 @@
     sortDir?: 1 | -1
     rowHeight?: number
     cardHeight?: number
+    /** Phone cards with different heights; the list stays virtualized through a prefix-sum of the heights. */
+    cardHeightOf?: (r: R) => number
     empty?: string
   } = $props()
 
@@ -50,9 +52,30 @@
   })
 
   const OVER = 8
-  const start = $derived(Math.max(0, Math.floor(top / rh) - OVER))
-  const end = $derived(Math.min(sorted.length, Math.ceil((top + viewH) / rh) + OVER))
+  // offsets[i] = y of row i when rows have different heights (null = all rows are `rh` tall)
+  const offsets = $derived.by(() => {
+    if (!mobile || !cardHeightOf) return null
+    const o = new Array<number>(sorted.length + 1)
+    o[0] = 0
+    for (let i = 0; i < sorted.length; i++) o[i + 1] = o[i] + cardHeightOf(sorted[i])
+    return o
+  })
+  // first index whose bottom edge is below y
+  function indexAt(y: number): number {
+    if (!offsets) return Math.floor(y / rh)
+    let lo = 0, hi = sorted.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (offsets[mid + 1] <= y) lo = mid + 1
+      else hi = mid
+    }
+    return lo
+  }
+  const start = $derived(Math.max(0, indexAt(top) - OVER))
+  const end = $derived(Math.min(sorted.length, indexAt(top + viewH) + 1 + OVER))
   const visible = $derived(sorted.slice(start, end))
+  const totalH = $derived(offsets ? offsets[sorted.length] : sorted.length * rh)
+  const startY = $derived(offsets ? offsets[start] : start * rh)
   const template = $derived(cols.map((c) => c.width).join(' '))
 
   function clickHead(c: Col<R>) {
@@ -71,13 +94,13 @@
     {#if sorted.length === 0}
       <div class="vt-empty">{empty}</div>
     {:else}
-      <div style:height="{sorted.length * rh}px" style:position="relative">
-        <div style:transform="translateY({start * rh}px)">
+      <div style:height="{totalH}px" style:position="relative">
+        <div style:transform="translateY({startY}px)">
           {#each visible as r, i (rowKey(r))}
             {#if mobile}
               <div
                 class="vc {rowClass?.(r) ?? ''}"
-                style:height="{rh}px"
+                style:height="{cardHeightOf ? cardHeightOf(r) : rh}px"
                 role="button"
                 tabindex="0"
                 onclick={() => onrowdblclick?.(r)}

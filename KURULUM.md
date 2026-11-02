@@ -40,3 +40,15 @@ adres çubuğundaki **Uygulamayı yükle** ile masaüstü uygulaması gibi kulla
 - **Aynı anda aynı ürünü** iki kişi düzenlerse son kaydeden kazanır.
 - **İsimle giriş kimlik doğrulama değildir:** linke erişen biri başkasının ismini seçebilir. Yönetici şifresi yalnızca arayüzde üye/ayar yönetimini korur; asıl koruma erişim anahtarıdır.
 - **Yedek:** e-tabloda *Dosya → Sürüm geçmişi* ile eski hallere dönebilir, *Dosya → İndir → Excel* ile yedek alabilirsiniz.
+
+## Güncelleme: haftalık e-posta özeti (isteğe bağlı)
+
+Uygulama her yeni sürümde otomatik güncellenir, ama **E-Tablodaki Apps Script kodu elle** güncellenir. E-posta özeti için:
+
+1. E-tabloda **Uzantılar → Apps Script**; `Code.gs` içindeki her şeyi silip bu klasördeki `apps-script/Code.gs` dosyasının güncel içeriğini yapıştırın → **Kaydet**.
+2. **Dağıt → Dağıtımları yönet → ✏ → Sürüm: Yeni sürüm → Dağıt** (URL ve anahtar **değişmez**).
+3. Fonksiyon listesinden **`haftalikOzetKur`** seçip **Çalıştır**. E-posta gönderme izni ister (*Gelişmiş → … sayfasına git → İzin ver*). Bu, her sabah ~08:00'de çalışan bir zamanlayıcı kurar; e-posta yalnızca sizin seçtiğiniz gün gider.
+4. Uygulamada **Ayarlar → Haftalık e-posta özeti** (yönetici girişiyle): alıcıları, günü ve yedek eklenip eklenmeyeceğini seçip **Kaydet**.
+5. Denemek için Apps Script'te **`testEposta`** fonksiyonunu çalıştırın; gün beklemeden şimdi bir e-posta gönderir.
+
+E-posta Google hesabınızdan gider (günlük 100 e-posta sınırı vardır, bu kullanım için fazlasıyla yeter). Yedek ekliyse e-postadaki `.json` dosyasını uygulamada **Ayarlar → Dosyadan veri içe aktar → Yedekten geri yükle** ile geri yükleyebilirsiniz.

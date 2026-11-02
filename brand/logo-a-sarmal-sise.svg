@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Lab Stok — sarmal şişe">
+  <title>Lab Stok — sarmal şişe</title>
+  <defs>
+    <linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f8cff"/><stop offset="1" stop-color="#2f6be0"/></linearGradient>
+  </defs>
+  <rect x="41" y="8" width="38" height="9" rx="4.5" fill="url(#ga)"/>
+  <path d="M50 16 L50 44 L24 93 Q17 106 32 106 L88 106 Q103 106 96 93 L70 44 L70 16 Z" fill="url(#ga)"/>
+  <line x1="71.50" y1="63.50" x2="48.50" y2="63.50" stroke="#ffffff" stroke-width="2.40" stroke-linecap="round" opacity=".55"/>
+  <line x1="48.50" y1="78.50" x2="71.50" y2="78.50" stroke="#ffffff" stroke-width="2.40" stroke-linecap="round" opacity=".55"/>
+  <line x1="71.50" y1="93.50" x2="48.50" y2="93.50" stroke="#ffffff" stroke-width="2.40" stroke-linecap="round" opacity=".55"/>
+  <path d="M60.00 56.00 L57.14 57.20 L54.46 58.40 L52.13 59.60 L50.29 60.80 L49.06 62.00 L48.52 63.20 L48.70 64.40 L49.59 65.60 L51.14 66.80 L53.24 68.00 L55.77 69.20 L58.56 70.40 L60.00 71.00" fill="none" stroke="#34d399" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M60.00 71.00 L62.86 72.20 L65.54 73.40 L67.87 74.60 L69.71 75.80 L70.94 77.00 L71.48 78.20 L71.30 79.40 L70.41 80.60 L69.39 81.44" fill="none" stroke="#34d399" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M50.61 90.56 L49.26 91.76 L48.57 92.96 L48.61 94.16 L49.36 95.36 L50.78 96.56 L52.78 97.76 L55.23 98.96 L57.99 100.16 L60.00 101.00" fill="none" stroke="#34d399" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M60.00 56.00 L62.86 57.20 L65.54 58.40 L67.87 59.60 L69.71 60.80 L70.94 62.00 L71.48 63.20 L71.30 64.40 L70.41 65.60 L69.39 66.44" fill="none" stroke="#ffffff" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M50.61 75.56 L49.26 76.76 L48.57 77.96 L48.61 79.16 L49.36 80.36 L50.78 81.56 L52.78 82.76 L55.23 83.96 L57.99 85.16 L60.00 86.00" fill="none" stroke="#ffffff" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M60.00 86.00 L62.86 87.20 L65.54 88.40 L67.87 89.60 L69.71 90.80 L70.94 92.00 L71.48 93.20 L71.30 94.40 L70.41 95.60 L68.86 96.80 L66.76 98.00 L64.23 99.20 L61.44 100.40 L60.00 101.00" fill="none" stroke="#ffffff" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

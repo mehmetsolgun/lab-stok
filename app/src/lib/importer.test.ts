@@ -34,6 +34,12 @@ describe('parseImport', () => {
     const r = parseImport(base({ items: [{ id: 'i', name: 'x', storage: 'Bilinmeyen Dolap' }], bottles: [] }))
     expect(r.ok === false && r.error).toContain('Bilinmeyen Dolap')
   })
+  it('reads the member list of a backup and rejects a malformed one', () => {
+    const ok = parseImport(base({ members: ['Ayşe Yılmaz', ' Mehmet Demir '] }))
+    expect(ok.ok && ok.payload.members).toEqual(['Ayşe Yılmaz', 'Mehmet Demir'])
+    expect(parseImport(base()).ok && (parseImport(base()) as { payload: { members: unknown } }).payload.members).toBeNull()
+    expect(parseImport(base({ members: 'Ayşe' })).ok).toBe(false)
+  })
   it('warns about inconsistent open bottles', () => {
     const r = parseImport(base({ bottles: [{ id: 'b1', itemId: 'i1', remaining: 900 }] }))
     expect(r.ok && r.warnings[0]).toContain('büyük')

@@ -44,9 +44,9 @@ export class Remote {
     return (await this.call<{ version: number }>({ action: 'version' })).version
   }
 
-  async load(): Promise<{ version: number; db: Database }> {
+  async load(): Promise<{ version: number; db: Database; caps: string[] }> {
     const r = await this.call<RemoteLoad & { version: number }>({ action: 'load' })
-    return { version: r.version, db: toDatabase(r) }
+    return { version: r.version, db: toDatabase(r), caps: r.caps ?? [] }
   }
 
   async apply(ops: Op[]): Promise<number> {

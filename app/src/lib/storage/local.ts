@@ -59,6 +59,8 @@ export class LocalStorageAdapter implements Storage {
     meta.put(db.members, 'members')
     if (db.admin) meta.put(db.admin, 'admin')
     else meta.delete('admin')
+    if (db.digest) meta.put(db.digest, 'digest')
+    else meta.delete('digest')
     await done(tx)
   }
 
@@ -66,7 +68,7 @@ export class LocalStorageAdapter implements Storage {
     const db = await this.dbp
     const tx = db.transaction([...STORES, 'log', 'meta'], 'readonly')
     const meta = tx.objectStore('meta')
-    const [items, bottles, primers, log, cats, members, admin] = await Promise.all([
+    const [items, bottles, primers, log, cats, members, admin, digest] = await Promise.all([
       wrap(tx.objectStore('items').getAll()),
       wrap(tx.objectStore('bottles').getAll()),
       wrap(tx.objectStore('primers').getAll()),
@@ -74,8 +76,9 @@ export class LocalStorageAdapter implements Storage {
       wrap(meta.get('categories')),
       wrap(meta.get('members')),
       wrap(meta.get('admin')),
+      wrap(meta.get('digest')),
     ])
-    return { items, bottles, primers, log, categories: cats ?? DEFAULT_CATEGORIES, members: members ?? [], admin: admin ?? null }
+    return { items, bottles, primers, log, categories: cats ?? DEFAULT_CATEGORIES, members: members ?? [], admin: admin ?? null, digest: digest ?? null }
   }
 
   async apply(input: Op[]): Promise<void> {

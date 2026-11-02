@@ -136,6 +136,27 @@ export function suggestedOrder(item: Item, open: Bottle[]): number {
   return Math.max(1, item.minStock * 2 - totalUnits(item, open))
 }
 
+// ---- data completeness ("Eksikler" view) ----
+
+export type Missing = 'skt' | 'location' | 'minStock' | 'size' | 'brand' | 'purpose' | 'storage'
+
+export const MISSING_LABEL: Record<Missing, string> = {
+  skt: 'SKT yok', location: 'Konum yok', minStock: 'Min. stok 0', size: 'Hacim yok', brand: 'Marka yok', purpose: 'Amaç yok', storage: 'Saklama yok',
+}
+
+/** Which useful fields of an item are still empty. Volume only counts for bottles (Şişe), where fill tracking matters. */
+export function missingOf(item: Item): Missing[] {
+  const out: Missing[] = []
+  if (!item.skt) out.push('skt')
+  if (!item.cabinet && !item.shelf && !item.box) out.push('location')
+  if (item.minStock === 0) out.push('minStock')
+  if (item.unit === 'Şişe' && item.bottleSize <= 0) out.push('size')
+  if (!item.brand.trim()) out.push('brand')
+  if (!item.purpose) out.push('purpose')
+  if (!item.storage) out.push('storage')
+  return out
+}
+
 // ---- primers ----
 
 export function cleanSeq(s: string): string {
