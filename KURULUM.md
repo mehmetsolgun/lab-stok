@@ -52,3 +52,19 @@ Uygulama her yeni sürümde otomatik güncellenir, ama **E-Tablodaki Apps Script
 5. Denemek için Apps Script'te **`testEposta`** fonksiyonunu çalıştırın; gün beklemeden şimdi bir e-posta gönderir.
 
 E-posta Google hesabınızdan gider (günlük 100 e-posta sınırı vardır, bu kullanım için fazlasıyla yeter). Yedek ekliyse e-postadaki `.json` dosyasını uygulamada **Ayarlar → Dosyadan veri içe aktar → Yedekten geri yükle** ile geri yükleyebilirsiniz.
+
+## Okul / kurum ağı script.google.com'u engelliyorsa (aracı kurulumu)
+
+Belirti: başka bir internette (ör. telefon hotspot'u) uygulama bağlanıyor, okul ağında "Sunucuya ulaşılamıyor" diyor.
+Çözüm iki yoldan biridir:
+
+- **Kolay:** Okulun bilgi işlemine `script.google.com` ve `script.googleusercontent.com` adreslerine izin verilmesini isteyin (Google'ın kendi Apps Script hizmetidir).
+- **Kendi çözümünüz:** Ücretsiz bir **Cloudflare Worker** aracısı. Ağ yalnızca aracının adresini görür; aracı isteği Google'a iletir. Anahtar yine Apps Script'te doğrulanır, aracı hiçbir veri saklamaz.
+
+Aracı kurulumu (bir kez, ~5 dakika):
+1. [dash.cloudflare.com](https://dash.cloudflare.com) üzerinden ücretsiz hesap açın → **Workers & Pages → Create → Create Worker** → bir ad verin (ör. `lab-stok`) → **Deploy**.
+2. **Edit code**: içindeki her şeyi silip `apps-script/relay-worker.js` dosyasının içeriğini yapıştırın. En üstteki `TARGET` satırına Apps Script'in `…/exec` adresini yazın → **Deploy**.
+3. Worker'ın adresini (`https://lab-stok.….workers.dev`) kopyalayın. Tarayıcıda açınca "Lab Stok aracısı çalışıyor." yazmalı.
+4. Uygulamada **Ayarlar → Görünüm ve bağlantı → Bağlantı adresini değiştir** bölümüne bu adresi yazın. Yerel veri ve gönderilmemiş değişiklikler korunur. Diğer bilgisayarlar için **Üye bağlantı linkini kopyala** ile yeni linki alıp gönderin.
+
+Not: okul bu adresi de engellerse (`workers.dev`), ilk yöntem kalır.

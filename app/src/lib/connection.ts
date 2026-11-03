@@ -52,9 +52,12 @@ export function consumeLink(): boolean {
 
 /** Catches the usual copy-paste mistakes before a request is sent. */
 export function urlProblem(url: string): string | null {
-  if (!/^https:\/\//i.test(url)) return 'Adres "https://" ile başlamalı.'
-  if (/\/dev(\?.*)?$/.test(url)) return 'Bu bir test adresi (/dev). Dağıt → Yeni dağıtım sonunda verilen "/exec" ile biten adresi kullanın.'
-  if (!/\/exec(\?.*)?$/.test(url)) return 'Adres "/exec" ile bitmeli (Dağıt → Yeni dağıtım sonunda verilen Web uygulaması URL\'si).'
+  let u: URL
+  try { u = new URL(url) } catch { return 'Geçerli bir adres girin ("https://" ile başlamalı).' }
+  if (u.protocol !== 'https:') return 'Adres "https://" ile başlamalı.'
+  if (u.hostname !== 'script.google.com') return null // an own relay for networks that block script.google.com (see KURULUM.md)
+  if (/\/dev$/.test(u.pathname)) return 'Bu bir test adresi (/dev). Dağıt → Yeni dağıtım sonunda verilen "/exec" ile biten adresi kullanın.'
+  if (!/\/exec$/.test(u.pathname)) return 'Adres "/exec" ile bitmeli (Dağıt → Yeni dağıtım sonunda verilen Web uygulaması URL\'si).'
   return null
 }
 

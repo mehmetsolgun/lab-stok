@@ -1,7 +1,7 @@
 <script lang="ts">
   import AdminPanel from './AdminPanel.svelte'
   import Dialog from './Dialog.svelte'
-  import { clearConfig, loadConfig, makeLink } from './connection'
+  import { clearConfig, loadConfig, makeLink, saveConfig, urlProblem } from './connection'
   import { store } from './state.svelte'
   import { ui } from './ui.svelte'
   import { exportAll } from './export'
@@ -133,6 +133,18 @@
   async function syncNow() {
     await store.refresh()
     ui.toast(store.syncError || 'Eşitlendi', store.syncError ? 'err' : 'ok')
+  }
+  // switch to another address (e.g. a relay) without losing the local copy or unsent changes
+  let newUrl = $state('')
+  function changeUrl(e: SubmitEvent) {
+    e.preventDefault()
+    const c = loadConfig()
+    const url = newUrl.trim()
+    const bad = urlProblem(url)
+    if (!c) return
+    if (bad) return void ui.toast(bad, 'err')
+    saveConfig({ ...c, url })
+    location.reload()
   }
   function disconnect() {
     if (!confirm('Bu bilgisayarın Google E-Tablo bağlantısı silinecek (veriler E-Tabloda kalır). Devam edilsin mi?')) return
@@ -309,5 +321,15 @@
       {/if}
       <button class="btn danger" onclick={disconnect}>Bağlantıyı sıfırla</button>
     </div>
+    {#if loadConfig()}
+      <details style="margin-top:.8rem">
+        <summary class="hint" style="cursor:pointer">Bağlantı adresini değiştir (ağınız script.google.com'u engelliyorsa)</summary>
+        <form onsubmit={changeUrl} style="display:grid;gap:.5rem;max-width:520px;margin-top:.5rem">
+          <p class="hint" style="margin:0">Yerel veriniz ve gönderilmemiş değişiklikleriniz korunur; yalnızca adres değişir. Anahtar aynı kalır.</p>
+          <input type="text" bind:value={newUrl} placeholder="https://…workers.dev" required />
+          <button class="btn" type="submit" style="justify-self:start">Adresi değiştir</button>
+        </form>
+      </details>
+    {/if}
   </div>
 </div>
