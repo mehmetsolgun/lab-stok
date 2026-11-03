@@ -50,7 +50,17 @@ export function consumeLink(): boolean {
   return false
 }
 
+/** Catches the usual copy-paste mistakes before a request is sent. */
+export function urlProblem(url: string): string | null {
+  if (!/^https:\/\//i.test(url)) return 'Adres "https://" ile başlamalı.'
+  if (/\/dev(\?.*)?$/.test(url)) return 'Bu bir test adresi (/dev). Dağıt → Yeni dağıtım sonunda verilen "/exec" ile biten adresi kullanın.'
+  if (!/\/exec(\?.*)?$/.test(url)) return 'Adres "/exec" ile bitmeli (Dağıt → Yeni dağıtım sonunda verilen Web uygulaması URL\'si).'
+  return null
+}
+
 export async function testConfig(c: RemoteConfig): Promise<void> {
+  const bad = urlProblem(c.url)
+  if (bad) throw new Error(bad)
   await new Remote(c).ping()
 }
 

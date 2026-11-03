@@ -24,7 +24,8 @@ export class Remote {
         redirect: 'follow',
       })
     } catch {
-      throw new Error('Sunucuya ulaşılamıyor (internet bağlantısını kontrol edin).')
+      // a login redirect (deployment not open to "Herkes", or a /dev test URL) is blocked by CORS and looks the same as being offline
+      throw new Error('Sunucuya ulaşılamıyor. İnternetinizi kontrol edin; sorun sürerse adresin Dağıt → Yeni dağıtım ekranındaki "/exec" ile biten adres olduğundan ve erişimin "Herkes" olduğundan emin olun.')
     }
     let json: { ok: boolean; error?: string } & Record<string, unknown>
     try {
